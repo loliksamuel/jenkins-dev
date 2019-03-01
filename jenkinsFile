@@ -8,29 +8,21 @@ a basic 3-stage continuous delivery pipeline.
 */
 
 pipeline {
-    agent any
-    parameters {
-        string(name: 'Greeting', defaultValue: 'Hello', description: 'How should I greet the world?')
+    agent {
+        docker {
+            image 'maven:3-alpine'
+            args '-v /root/.m2:/root/.m2'
+        }
     }
     stages {
+      
+       
+      
         stage('Build') {
             steps {
-                echo 'Building..'
-            }
-        }
-        stage('Test') {
-            steps {
-                echo 'Testing..'
-            }
-        }
-        stage('Run') {
-            steps {
-                echo "Running ${env.BUILD_ID} on ${env.JENKINS_URL}"
-            }
-        }
-        stage('Build') {
-            steps {
+                        echo 'Building..'
                         sh 'make'
+                        sh 'mvn -B -DskipTests clean package'
                         archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
                     }
         }
@@ -38,11 +30,24 @@ pipeline {
             steps {
                         /* `make check` returns non-zero on test failures,
                         * using `true` to allow the Pipeline to continue nonetheless  */
+                        echo 'Testing..'
                         sh 'make check || true'
+                        sh 'mvn test'
                         junit '**/target/*.xml'
                     }
+             post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                }
+            }       
         }
 
+       stage('Deliver') {
+            steps {
+                sh './jenkins/scripts/deliver.sh'
+            }
+        }
+        
         stage('Deploy') {
                     when {
                       expression {
@@ -67,6 +72,11 @@ pipeline {
                         }
                     }
        }
+         stage('Run') {
+            steps {
+                echo "Running ${env.BUILD_ID} on ${env.JENKINS_URL}"
+            }
+        }
 
     }
 }
