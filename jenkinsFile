@@ -1,0 +1,72 @@
+/*
+As discussed in the Defining a Pipeline in SCM,
+a Jenkinsfile is a text file that contains the definition of a Jenkins Pipeline
+and is checked into source control.
+Consider the following Pipeline which implements
+a basic 3-stage continuous delivery pipeline.
+ every stage is a green/red rectangular in jenkins
+*/
+
+pipeline {
+    agent any
+    parameters {
+        string(name: 'Greeting', defaultValue: 'Hello', description: 'How should I greet the world?')
+    }
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Building..'
+            }
+        }
+        stage('Test') {
+            steps {
+                echo 'Testing..'
+            }
+        }
+        stage('Run') {
+            steps {
+                echo "Running ${env.BUILD_ID} on ${env.JENKINS_URL}"
+            }
+        }
+        stage('Build') {
+            steps {
+                        sh 'make'
+                        archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
+                    }
+        }
+        stage('Test') {
+            steps {
+                        /* `make check` returns non-zero on test failures,
+                        * using `true` to allow the Pipeline to continue nonetheless  */
+                        sh 'make check || true'
+                        junit '**/target/*.xml'
+                    }
+        }
+
+        stage('Deploy') {
+                    when {
+                      expression {
+                        currentBuild.result == null || currentBuild.result == 'SUCCESS'
+                      }
+                    }
+                    steps {
+                        sh 'make publish'
+                    }
+        }
+
+        stage('Example stage 1') {
+                    steps {
+                        withCredentials(bindings: [sshUserPrivateKey(credentialsId: 'jenkins-ssh-key-for-abc', \
+                                                                     keyFileVariable: 'SSH_KEY_FOR_ABC')]) {
+                          //
+                        }
+                        withCredentials(bindings: [certificate(credentialsId: 'jenkins-certificate-for-xyz', \
+                                                               keystoreVariable: 'CERTIFICATE_FOR_XYZ', \
+                                                               passwordVariable: 'XYZ-CERTIFICATE-PASSWORD')]) {
+                          //
+                        }
+                    }
+       }
+
+    }
+}
