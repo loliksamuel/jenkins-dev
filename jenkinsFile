@@ -41,7 +41,12 @@ pipeline {
                 }
             }       
         }
-
+        stage('Dockerize') {
+            steps {
+                sh './dockerBuild.sh'
+                sh './send2repo.sh'
+            }
+        }
        stage('Deliver') {
             steps {
                 sh './deliver.sh'
